@@ -1,0 +1,46 @@
+name: Publicar Panel IPSA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Lunes a viernes 21:17 UTC (~17-18h Santiago), despues del cierre de la Bolsa de Santiago
+    - cron: "17 21 * * 1-5"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/Santiago
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generar panel
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _site | Out-Null
+          ./update_panel.ps1 -Ci -Output _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
